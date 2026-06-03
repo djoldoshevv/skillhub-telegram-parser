@@ -83,9 +83,9 @@
     {
       "parameters": {
         "chatId": "-1003971367277",
-        "text": "={{ $json.final_text }}",
+        "text": "={{ $('Parse & Map Thread ID').item.json.final_text }}",
         "additionalFields": {
-          "message_thread_id": "={{ $json.message_thread_id }}",
+          "message_thread_id": "={{ $('Parse & Map Thread ID').item.json.message_thread_id }}",
           "parse_mode": "HTML"
         }
       },
@@ -134,8 +134,8 @@
         "binaryData": true,
         "binaryPropertyName": "media_file",
         "additionalFields": {
-          "caption": "={{ $json.media_caption }}",
-          "message_thread_id": "={{ $json.message_thread_id }}",
+          "caption": "={{ $('Parse & Map Thread ID').item.json.media_caption }}",
+          "message_thread_id": "={{ $('Parse & Map Thread ID').item.json.message_thread_id }}",
           "parse_mode": "HTML"
         }
       },
@@ -161,8 +161,8 @@
         "binaryData": true,
         "binaryPropertyName": "media_file",
         "additionalFields": {
-          "caption": "={{ $json.media_caption }}",
-          "message_thread_id": "={{ $json.message_thread_id }}",
+          "caption": "={{ $('Parse & Map Thread ID').item.json.media_caption }}",
+          "message_thread_id": "={{ $('Parse & Map Thread ID').item.json.message_thread_id }}",
           "parse_mode": "HTML"
         }
       },
@@ -188,8 +188,8 @@
         "binaryData": true,
         "binaryPropertyName": "media_file",
         "additionalFields": {
-          "caption": "={{ $json.media_caption }}",
-          "message_thread_id": "={{ $json.message_thread_id }}",
+          "caption": "={{ $('Parse & Map Thread ID').item.json.media_caption }}",
+          "message_thread_id": "={{ $('Parse & Map Thread ID').item.json.message_thread_id }}",
           "parse_mode": "HTML"
         }
       },
@@ -213,7 +213,7 @@
         "conditions": {
           "boolean": [
             {
-              "value1": "={{ $json.should_send_split_text }}",
+              "value1": "={{ $('Parse & Map Thread ID').item.json.should_send_split_text }}",
               "value2": true
             }
           ]
