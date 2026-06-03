@@ -49,7 +49,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Получаем ответ от DeepSeek\nconst responseContent = JSON.parse($json.choices[0].message.content);\n\n// Извлекаем нужные поля\nconst category = responseContent.category || 'GENERAL';\nconst cleanedText = responseContent.cleaned_text || '';\nconst hashtags = responseContent.hashtags || '';\n\n// Маппинг категорий в message_thread_id (топики/ячейки в супергруппе Telegram)\n// Замените эти ID (цифры) на реальные message_thread_id ваших топиков!\nconst threadMap = {\n  \"GENERAL\": 1,      // ТОЧНЫЙ ID!\n  \"CREATIVITY\": 5,  // ТОЧНЫЙ ID!\n  \"IT\": 2,          // ТОЧНЫЙ ID!\n  \"DIPLOMACY\": 7,   // ТОЧНЫЙ ID!\n  \"BUSINESS\": 6,    // ТОЧНЫЙ ID!\n  \"MARKETING\": 8    // ТОЧНЫЙ ID!\n};\n\nconst messageThreadId = threadMap[category] || threadMap[\"GENERAL\"];\n\n// Собираем финальный текст для публикации\nlet finalText = cleanedText;\nif (hashtags) {\n  finalText += '\\n\\n' + hashtags;\n}\n\n// Передаем все данные дальше, сохраняя исходные метаданные от юзербота\nreturn {\n  json: {\n    original_text: $('Webhook Trigger').item.json.body.text,\n    channel_name: $('Webhook Trigger').item.json.body.channel_name,\n    media_type: $('Webhook Trigger').item.json.body.media_type || null,\n    category: category,\n    message_thread_id: messageThreadId,\n    final_text: finalText\n  },\n  binary: $('Webhook Trigger').item.binary || {}\n};"
+        "jsCode": "// Получаем ответ от DeepSeek\nconst responseContent = JSON.parse($json.choices[0].message.content);\n\n// Извлекаем нужные поля\nconst category = responseContent.category || 'GENERAL';\nconst cleanedText = responseContent.cleaned_text || '';\nconst hashtags = responseContent.hashtags || '';\n\n// Маппинг категорий в message_thread_id (топики/ячейки в супергруппе Telegram)\nconst threadMap = {\n  \"GENERAL\": 1,\n  \"CREATIVITY\": 5,\n  \"IT\": 2,\n  \"DIPLOMACY\": 7,\n  \"BUSINESS\": 6,\n  \"MARKETING\": 8\n};\n\nconst messageThreadId = threadMap[category] || threadMap[\"GENERAL\"];\n\n// Собираем финальный текст для публикации\nlet finalText = cleanedText;\nif (hashtags) {\n  finalText += '\\n\\n' + hashtags;\n}\n\n// Ограничение Telegram на описание медиафайлов составляет 1024 символа.\n// Если текст длиннее, то отправляем медиафайл пустым, а текст отправляем следом отдельным сообщением.\nconst isLongText = finalText.length > 1024;\nconst mediaCaption = isLongText ? '' : finalText;\n\nreturn {\n  json: {\n    original_text: $('Webhook Trigger').item.json.body.text,\n    channel_name: $('Webhook Trigger').item.json.body.channel_name,\n    media_type: $('Webhook Trigger').item.json.body.media_type || null,\n    category: category,\n    message_thread_id: messageThreadId,\n    final_text: finalText,\n    media_caption: mediaCaption,\n    should_send_split_text: isLongText\n  },\n  binary: $('Webhook Trigger').item.binary || {}\n};"
       },
       "id": "76495dbb-2d4e-4f1e-b816-56c68b7593c6",
       "name": "Parse & Map Thread ID",
@@ -134,7 +134,7 @@
         "binaryData": true,
         "binaryPropertyName": "media_file",
         "additionalFields": {
-          "caption": "={{ $json.final_text }}",
+          "caption": "={{ $json.media_caption }}",
           "message_thread_id": "={{ $json.message_thread_id }}",
           "parse_mode": "HTML"
         }
@@ -161,7 +161,7 @@
         "binaryData": true,
         "binaryPropertyName": "media_file",
         "additionalFields": {
-          "caption": "={{ $json.final_text }}",
+          "caption": "={{ $json.media_caption }}",
           "message_thread_id": "={{ $json.message_thread_id }}",
           "parse_mode": "HTML"
         }
@@ -188,7 +188,7 @@
         "binaryData": true,
         "binaryPropertyName": "media_file",
         "additionalFields": {
-          "caption": "={{ $json.final_text }}",
+          "caption": "={{ $json.media_caption }}",
           "message_thread_id": "={{ $json.message_thread_id }}",
           "parse_mode": "HTML"
         }
@@ -210,6 +210,26 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.should_send_split_text }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "split-text-if-node",
+      "name": "Split Text?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1850,
+        140
+      ]
+    },
+    {
+      "parameters": {
         "options": {}
       },
       "id": "402096ee-0a27-4c4f-bb8e-bfa1e626ea72",
@@ -217,7 +237,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1900,
+        2100,
         240
       ]
     }
@@ -314,7 +334,7 @@
       "main": [
         [
           {
-            "node": "Success Response",
+            "node": "Split Text?",
             "type": "main",
             "index": 0
           }
@@ -325,7 +345,7 @@
       "main": [
         [
           {
-            "node": "Success Response",
+            "node": "Split Text?",
             "type": "main",
             "index": 0
           }
@@ -334,6 +354,24 @@
     },
     "Send Document Post": {
       "main": [
+        [
+          {
+            "node": "Split Text?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Text?": {
+      "main": [
+        [
+          {
+            "node": "Send Plain Text Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Success Response",
