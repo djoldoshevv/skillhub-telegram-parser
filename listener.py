@@ -65,6 +65,12 @@ logger.info(f"Загружено {len(tracked_channels)} каналов для �
 # Создаем клиента Telethon (используем StringSession для Render, если она передана)
 session_string = os.getenv("TELEGRAM_SESSION_STRING")
 if session_string:
+    # Очищаем строку от возможных пробелов и переносов строк при копировании из терминала
+    session_string = session_string.strip().replace("\n", "").replace("\r", "").replace(" ", "")
+    # Восстанавливаем недостающие символы заполнения (padding) для base64
+    missing_padding = len(session_string) % 4
+    if missing_padding:
+        session_string += '=' * (4 - missing_padding)
     client = TelegramClient(StringSession(session_string), config.api_id, config.api_hash)
     logger.info("🔑 Инициализация клиента Telethon через StringSession")
 else:
