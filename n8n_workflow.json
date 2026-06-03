@@ -1,0 +1,354 @@
+{
+  "name": "Skillhub Telegram Parser & AI Router",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "telegram-parser",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e81e3a9b-dc7c-4a37-b4d4-9d58a14b5182",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        380,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sk-a575e39ba4654351b797637c2e784699"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"deepseek-chat\",\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an expert content editor. Your task is to process a Telegram post:\\n1. Classify the post into one of these categories: IT, CREATIVITY, BUSINESS, DIPLOMACY, GENERAL, MARKETING.\\n2. Clean the text from generic ads, channel cross-promotions, and sponsor credits.\\n3. IMPORTANT: You MUST preserve and keep any registration links, event links, webinar registration URLs, and app signup links mentioned in the text. Format them as plain text URLs (e.g. https://example.com) or standard HTML links: <a href=\\\"https://example.com\\\">Регистрация</a>. DO NOT use markdown format like [text](url).\\n4. Generate 2-4 highly relevant hashtags in Russian representing the post theme.\\n5. Respond ONLY with a valid JSON object containing these keys: 'category' (one of the 6 strings above), 'cleaned_text' (the processed text), 'hashtags' (string with space-separated hashtags, e.g. '#маркетинг #дизайн').\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.body.text || \"\") }}\n    }\n  ]\n}"
+      },
+      "id": "8327d78d-194c-474c-a13a-73d8ab87201c",
+      "name": "DeepSeek AI Classifier",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        600,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Получаем ответ от DeepSeek\nconst responseContent = JSON.parse($json.choices[0].message.content);\n\n// Извлекаем нужные поля\nconst category = responseContent.category || 'GENERAL';\nconst cleanedText = responseContent.cleaned_text || '';\nconst hashtags = responseContent.hashtags || '';\n\n// Маппинг категорий в message_thread_id (топики/ячейки в супергруппе Telegram)\n// Замените эти ID (цифры) на реальные message_thread_id ваших топиков!\nconst threadMap = {\n  \"GENERAL\": 1,      // ТОЧНЫЙ ID!\n  \"CREATIVITY\": 5,  // ТОЧНЫЙ ID!\n  \"IT\": 2,          // ТОЧНЫЙ ID!\n  \"DIPLOMACY\": 7,   // ТОЧНЫЙ ID!\n  \"BUSINESS\": 6,    // ТОЧНЫЙ ID!\n  \"MARKETING\": 8    // ТОЧНЫЙ ID!\n};\n\nconst messageThreadId = threadMap[category] || threadMap[\"GENERAL\"];\n\n// Собираем финальный текст для публикации\nlet finalText = cleanedText;\nif (hashtags) {\n  finalText += '\\n\\n' + hashtags;\n}\n\n// Передаем все данные дальше, сохраняя исходные метаданные от юзербота\nreturn {\n  json: {\n    original_text: $('Webhook Trigger').item.json.body.text,\n    channel_name: $('Webhook Trigger').item.json.body.channel_name,\n    media_type: $('Webhook Trigger').item.json.body.media_type || null,\n    category: category,\n    message_thread_id: messageThreadId,\n    final_text: finalText\n  },\n  binary: $('Webhook Trigger').item.binary || {}\n};"
+      },
+      "id": "76495dbb-2d4e-4f1e-b816-56c68b7593c6",
+      "name": "Parse & Map Thread ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        820,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $binary?.media_file ? true : false }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "270db2b3-519b-4ff2-bc18-dfa79dcd2c4f",
+      "name": "Has Media?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "-1003971367277",
+        "text": "={{ $json.final_text }}",
+        "additionalFields": {
+          "message_thread_id": "={{ $json.message_thread_id }}",
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "bfd0d82d-88b9-4ec4-9dfa-97a6e118de02",
+      "name": "Send Plain Text Post",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        340
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-credential",
+          "name": "Skillhub Posting Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "value": "photo"
+            },
+            {
+              "value": "video"
+            }
+          ]
+        },
+        "value": "={{ $json.media_type }}"
+      },
+      "id": "8f381c1c-99d7-4632-a5e2-9b2f34789db8",
+      "name": "Route Media Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1300,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "-1003971367277",
+        "binaryData": true,
+        "binaryPropertyName": "media_file",
+        "additionalFields": {
+          "caption": "={{ $json.final_text }}",
+          "message_thread_id": "={{ $json.message_thread_id }}",
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "a90ef595-df2d-4bf8-bce6-a19f448c3b44",
+      "name": "Send Photo Post",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        40
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-credential",
+          "name": "Skillhub Posting Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendVideo",
+        "chatId": "-1003971367277",
+        "binaryData": true,
+        "binaryPropertyName": "media_file",
+        "additionalFields": {
+          "caption": "={{ $json.final_text }}",
+          "message_thread_id": "={{ $json.message_thread_id }}",
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "8db33cf3-4889-450f-90e3-99b35bc45945",
+      "name": "Send Video Post",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        180
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-credential",
+          "name": "Skillhub Posting Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendDocument",
+        "chatId": "-1003971367277",
+        "binaryData": true,
+        "binaryPropertyName": "media_file",
+        "additionalFields": {
+          "caption": "={{ $json.final_text }}",
+          "message_thread_id": "={{ $json.message_thread_id }}",
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "c138383a-4efb-4682-8409-a7be35805490",
+      "name": "Send Document Post",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        320
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-credential",
+          "name": "Skillhub Posting Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "402096ee-0a27-4c4f-bb8e-bfa1e626ea72",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1900,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "DeepSeek AI Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek AI Classifier": {
+      "main": [
+        [
+          {
+            "node": "Parse & Map Thread ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Map Thread ID": {
+      "main": [
+        [
+          {
+            "node": "Has Media?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Media?": {
+      "main": [
+        [
+          {
+            "node": "Route Media Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Plain Text Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Media Type": {
+      "main": [
+        [
+          {
+            "node": "Send Photo Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Video Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Document Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Plain Text Post": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Photo Post": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Video Post": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Document Post": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "skillhub-telegram-parser-workflow"
+}
