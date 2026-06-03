@@ -125,6 +125,36 @@ def send_to_n8n(data, file_path=None, media_type=None):
         logger.error(f"Не удалось связаться с n8n: {e}")
         return False
 
+def remove_kazakh_text(text):
+    """Удаляет абзацы или строки, содержащие специфичные казахские буквы (кириллица)."""
+    if not text:
+        return text
+    
+    # Специфичные буквы казахского алфавита (кириллица), отсутствующие в русском
+    KAZAKH_CHARS = set("әғқңөұүһіӘҒҚҢӨҰҮҺІ")
+    
+    # Разделяем по двойным переносам (абзацам)
+    paragraphs = text.split("\n\n")
+    cleaned_paragraphs = []
+    
+    for p in paragraphs:
+        # Проверяем, содержит ли абзац казахские буквы
+        if not any(char in KAZAKH_CHARS for char in p):
+            cleaned_paragraphs.append(p)
+            
+    result = "\n\n".join(cleaned_paragraphs).strip()
+    
+    # Если в итоге ничего не осталось, но текст был — пробуем разделить по одиночным строкам
+    if not result and text:
+        lines = text.split("\n")
+        cleaned_lines = []
+        for line in lines:
+            if not any(char in KAZAKH_CHARS for char in line):
+                cleaned_lines.append(line)
+        result = "\n".join(cleaned_lines).strip()
+        
+    return result
+
 def clean_channel_input(text):
     """Очищает юзернейм канала от ссылок и символов @."""
     text = text.strip()
@@ -246,9 +276,18 @@ async def handle_new_message(event):
             
         logger.info(f"📢 Обнаружен новый пост в канале @{chat_username or chat_id} (ID сообщения: {event.id})")
         
+        # Получаем текст сообщения
+        text = event.text or ''
+        
+        # Фильтруем казахский текст для jasa_project
+        if chat_username == 'jasa_project':
+            original_len = len(text)
+            text = remove_kazakh_text(text)
+            logger.info(f"🧹 Очищен казахский текст для @jasa_project. Длина: {original_len} -> {len(text)}")
+        
         # Собираем данные сообщения
         post_data = {
-            'text': event.text or '',
+            'text': text,
             'channel_name': chat_username or chat.title,
             'channel_id': chat_id,
             'message_id': event.id
