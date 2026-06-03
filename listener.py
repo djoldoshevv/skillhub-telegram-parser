@@ -235,6 +235,8 @@ async def handle_new_message(event):
         elif str(chat_id) in tracked_channels:
             is_tracked = True
             
+        logger.info(f"📥 Получено сообщение из канала @{chat_username or chat_id}. Отслеживается: {is_tracked}")
+            
         if not is_tracked:
             return
             
@@ -318,6 +320,16 @@ async def main():
     await client.start()
     me = await client.get_me()
     logger.info(f"✨ Успешная авторизация от лица аккаунта: {me.first_name} (@{me.username})")
+    
+    # Автоматически проверяем и подписываемся на все отслеживаемые каналы при старте
+    logger.info("Проверка подписок на отслеживаемые каналы...")
+    for channel in tracked_channels:
+        try:
+            await client(JoinChannelRequest(channel))
+            logger.info(f"✅ Проверена подписка/вход в канал: @{channel}")
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось автоматически зайти в канал @{channel}: {e}")
+            
     logger.info(f"💡 Команды управления работают в вашем чате 'Saved Messages' (Избранное).")
     
     # Запускаем бесконечное прослушивание

@@ -15,8 +15,8 @@ if not api_id or not api_hash:
 
 api_id = int(api_id)
 
-# Инициализируем клиента на основе уже существующей локальной сессии
-client = TelegramClient("skillhub_session", api_id, api_hash)
+# Инициализируем клиента с чистого листа (в оперативной памяти)
+client = TelegramClient(StringSession(), api_id, api_hash)
 
 async def main():
     session_str = StringSession.save(client.session)
