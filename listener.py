@@ -67,10 +67,22 @@ session_string = os.getenv("TELEGRAM_SESSION_STRING")
 if session_string:
     # Очищаем строку от возможных пробелов и переносов строк при копировании из терминала
     session_string = session_string.strip().replace("\n", "").replace("\r", "").replace(" ", "")
-    # Восстанавливаем недостающие символы заполнения (padding) для base64
-    missing_padding = len(session_string) % 4
-    if missing_padding:
-        session_string += '=' * (4 - missing_padding)
+    # Важно: Telethon StringSession начинается с символа версии '1', а остальная часть - это base64.
+    # Нам нужно правильно дополнить (pad) именно base64 часть, а не всю строку целиком!
+    if session_string.startswith('1'):
+        version = '1'
+        payload = session_string[1:]
+        # Добавляем '=' к base64 payload, чтобы его длина делилась на 4
+        missing_padding = len(payload) % 4
+        if missing_padding:
+            payload += '=' * (4 - missing_padding)
+        session_string = version + payload
+    else:
+        # Если версия не '1', просто пробуем дополнить всю строку на всякий случай
+        missing_padding = len(session_string) % 4
+        if missing_padding:
+            session_string += '=' * (4 - missing_padding)
+            
     client = TelegramClient(StringSession(session_string), config.api_id, config.api_hash)
     logger.info("🔑 Инициализация клиента Telethon через StringSession")
 else:
