@@ -240,6 +240,40 @@
         2100,
         240
       ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "keep-alive-schedule-trigger",
+      "name": "Keep-Alive Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        380,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://skillhub-userbot.onrender.com/",
+        "options": {}
+      },
+      "id": "ping-render-bot",
+      "name": "Ping Bot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        600,
+        500
+      ]
     }
   ],
   "connections": {
@@ -375,6 +409,17 @@
         [
           {
             "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep-Alive Trigger": {
+      "main": [
+        [
+          {
+            "node": "Ping Bot",
             "type": "main",
             "index": 0
           }
